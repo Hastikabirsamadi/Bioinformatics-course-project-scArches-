@@ -1,0 +1,10 @@
+# Colab already ships torch/numpy/pandas/scikit-learn/matplotlib; install the rest.
+scanpy
+anndata
+scvi-tools
+muon
+scHPL
+leidenalg
+python-igraph
+gdown
+pyyaml

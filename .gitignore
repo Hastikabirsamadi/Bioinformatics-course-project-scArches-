@@ -1,0 +1,10 @@
+.venv/
+data/
+__pycache__/
+*.pyc
+install.log
+results_smoke/
+results/runs/*/*/ref_model/
+results/runs/*/*/query_model/
+.ipynb_checkpoints/
+.DS_Store
