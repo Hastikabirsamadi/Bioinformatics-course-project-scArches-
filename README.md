@@ -1,29 +1,27 @@
-# expiMap: reproducing and fixing a course-project modification
+# expiMap: course project on scArches
 
 Course project (Bioinformatics, Amirkabir University, 2024-25) built on
 [scArches / expiMap](https://github.com/theislab/scarches) (Lotfollahi et al., *Nat. Biotechnol.* 2022).
-The original project changed expiMap in three ways and judged the result only by looking at UMAPs.
-This repo re-implements those changes so they actually train, and measures them with numbers.
+The original project modified expiMap and judged the result by looking at UMAPs.
+This repository holds the cleaned project files, together with scripts that measure the modifications with numbers.
 
-## What changed in the model (`src/scarches/`, copy of upstream v0.6.1)
-| Student change | Status in original | Here |
-|---|---|---|
-| Extra `Linear+ReLU` before the encoder mean/var heads | always on; broke loading of pretrained models | optional flag `use_extra_layer`, saved with the model so query mapping rebuilds it |
-| `correlation_penalty(z)` (squared off-diagonal covariance) | computed but **never optimised**: trainer still unpacked 3 return values | model returns the raw penalty, trainer adds `alpha_corr * penalty` with the annealed KL, logs `corr_loss` |
-| New args `use_corr_penalty`, `alpha_corr` | defaults were ON, not stored in the model | default OFF, stored and restored by `load_query_data` |
+## Changes to the model
+The code lives in `src/scarches/`, a copy of scArches v0.6.1. Two changes were made to expiMap.
 
-"Transfer-learning update" and "decoder update" from the report had no code change (the first is upstream's `load_query_data`), so they are not reproduced.
+- **Extra encoder layer.** An additional `Linear + ReLU` layer is added to the encoder just before the mean and variance layers. It is controlled by the option `use_extra_layer`.
+- **Correlation penalty.** A penalty on the latent variables is added to the loss. It is the sum of the squared off-diagonal entries of the latent covariance matrix, multiplied by the weight `alpha_corr` (1e-3). It is controlled by the option `use_corr_penalty`.
 
-## Experiment (`run_experiment.py`, one run = reference + query)
-Tutorial pipeline unchanged: PBMC (4 studies, 32,484 cells) reference, Reactome pathways, 2000 HVGs, hidden `[256,256,256]`, NB loss, group lasso 0.7, up to 400 epochs with early stopping; then architecture surgery with the Kang query (13,576 cells, control vs IFN-stimulated).
-Variants: `baseline` (upstream), `extra`, `corr` (student's penalty, weight 1e-3), `both` (= student's full modification). Seeds 0, 1, 2.
+## Experiment
+Each run uses the setup of the scArches expiMap tutorial. First, a reference model is trained on the PBMC data (4 studies, 32,484 cells) using Reactome pathways, 2000 highly variable genes, three hidden layers of 256 nodes, the negative binomial loss and a group lasso weight of 0.7. Training lasts up to 400 epochs with early stopping. Then the Kang data (13,576 cells, control and interferon-stimulated) is mapped onto the reference with architecture surgery, which keeps the reference model frozen and trains only the new input weights for the Kang study.
 
-Metrics (mean ± std over seeds, `results/results_summary.csv`): iLISI and batch ASW (mixing), cell-type ASW / NMI / ARI (separation), kNN label-transfer accuracy and macro-F1 on Kang (cell types absent from the reference are excluded; fraction reported), and pathway checks: active terms kept after surgery, mean |correlation| between pathway latents, drift of reference latents after surgery, and AUROC of the INTERFERON_SIGNALING latent separating stimulated from control Kang cells.
+This is done for four versions of the model: the unmodified baseline, the extra layer alone, the correlation penalty alone, and both changes together. Each version is run with three random seeds (0, 1 and 2), and the results are reported as the mean and standard deviation over the seeds.
+
+The results are measured in four ways. Batch mixing is measured with iLISI and batch ASW, and cell-type separation with cell-type ASW, NMI and ARI. Label transfer is measured by the accuracy and macro F1 of predicting the Kang cell types from the reference. Finally, three pathway checks look at how correlated the pathway latents are, how much the reference cells move after surgery, and how well the interferon signalling latent separates stimulated from control cells. All numbers are saved in `results/results_summary.csv`.
 
 ## Run
 ```
 make env            # local venv from requirements.lock (arm64 macOS, Python 3.12)
 python download_data.py
 make smoke          # 3-epoch CPU test, a few minutes
-make run            # full experiment (slow on CPU; used colab_run.ipynb with a GPU)
+make run            # full experiment (slow on CPU; use colab_run.ipynb with a GPU)
 ```
