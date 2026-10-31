@@ -3,7 +3,6 @@ scanpy
 anndata
 scvi-tools
 muon
-scHPL
 leidenalg
 python-igraph
 gdown
